@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Asia/Tokyo",
+  "prHourlyLimit": 0,
+  "git-submodules": {
+    "enabled": true
+  },
+  "enabledManagers": [ "github-actions", "terraform", "git-submodules" ],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "aeonnext/anx1-lib"
+      ],
+      "versioning": "regex:^[a-zA-Z-]+-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": ["actions/upload-artifact", "actions/download-artifact"],
+      "enabled": true
+    },
+    {
+      "matchManagers": ["terraform"],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "terraform"
+      ],
+      "matchPackageNames": [
+        "aeonnext/terraform-newrelic-anx1",
+        "aeonnext/terraform-azurerm-anx1",
+        "aeonnext/terraform-google-anx1",
+        "aeonnext/terraform-aws-anx1"
+      ],
+      "matchDatasources": ["github-tags"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "git-submodules"
+      ],
+      "enabled": true,
+      "automerge": true,
+      "ignoreTests": true
+    }
+  ]
+}
+  
