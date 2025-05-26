@@ -1,0 +1,92 @@
+name: Claude Assistant
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+jobs:
+  claude-assistant:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ANX_CLAUDE_APP_ID }}
+          private-key: ${{ secrets.ANX_CLAUDE_APP_PRIVATE_KEY }}
+
+      - name: Add eye emoji reaction
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            // Add eye emoji reaction to indicate Claude has been triggered
+            try {
+              if (context.eventName === 'issue_comment') {
+                // React to issue comment
+                await github.rest.reactions.createForIssueComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: context.payload.comment.id,
+                  content: 'eyes'
+                });
+                console.log('Added eye emoji to issue comment');
+              } else if (context.eventName === 'pull_request_review_comment') {
+                // React to PR review comment
+                await github.rest.reactions.createForPullRequestReviewComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: context.payload.comment.id,
+                  content: 'eyes'
+                });
+                console.log('Added eye emoji to PR review comment');
+              } else if (context.eventName === 'issues') {
+                // React to issue itself
+                await github.rest.reactions.createForIssue({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  content: 'eyes'
+                });
+                console.log('Added eye emoji to issue');
+              }
+            } catch (error) {
+              console.log('Error adding eye emoji reaction:', error.message);
+              // Don't fail the workflow if emoji addition fails
+            }
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_CLAUDE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_CLAUDE_SERVICE_ACCOUNT }}
+
+      - uses: anthropics/claude-code-action@beta
+        with:
+          trigger_phrase: '@claude'
+          timeout_minutes: '60'
+          github_token: ${{ steps.app-token.outputs.token }}
+          use_vertex: 'true'
+          model: 'claude-sonnet-4@20250514'
+          allowed_tools: 'mcp__github__merge_pull_request' # Allows merging PRs
+        env:
+          ANTHROPIC_VERTEX_PROJECT_ID: ${{ steps.auth.outputs.project_id }}
+          CLOUD_ML_REGION: us-east5
