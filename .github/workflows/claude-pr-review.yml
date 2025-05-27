@@ -1,0 +1,44 @@
+name: Claude Assistant
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+
+jobs:
+  claude-pr-review:
+    runs-on: ubuntu-latest
+    if: !contains(github.event.pull_request.labels.*.name, 'skip-ai-review')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ANX_CLAUDE_APP_ID }}
+          private-key: ${{ secrets.ANX_CLAUDE_APP_PRIVATE_KEY }}
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_CLAUDE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_CLAUDE_SERVICE_ACCOUNT }}
+
+      - uses: anthropics/claude-code-action@beta
+        with:
+          direct_prompt: 'PR変更をレビューしてください。コード品質、潜在的なバグ、パフォーマンスの問題に焦点を当ててください。適切な改善点を提案してください。マージしてよいかどうかを明確に示してください。'
+          timeout_minutes: '60'
+          github_token: ${{ steps.app-token.outputs.token }}
+          use_vertex: 'true'
+          model: 'claude-sonnet-4@20250514'
+        env:
+          ANTHROPIC_VERTEX_PROJECT_ID: ${{ steps.auth.outputs.project_id }}
+          CLOUD_ML_REGION: us-east5
